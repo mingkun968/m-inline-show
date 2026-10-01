@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "local.m_inline_show",
+  "name": "m_inline_show",
+  "version": "0.2.0",
+  "description": "在回复正文里内联显示小块内容：local.m_inline_show:chart（折线/柱状/饼图/sparkline，手写 SVG，可悬停提示/缩放/导出）、local.m_inline_show:html（无脚本沙箱 HTML 片段）、local.m_inline_show:widget（可跑内联脚本但断网的交互片段）。零依赖、不弹窗。",
+  "author": "mingkun968",
+  "main": "main.js",
+  "renderer": "renderer/index.mjs",
+  "rendererActions": ["plugin.call"],
+  "rendererCallMethods": ["disp.copy", "disp.log"],
+  "permissions": [
+    "renderer.extension",
+    "agent.prompt.inject",
+    "clipboard.write"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "local.m_inline_show.help",
+        "title": "m_inline_show: 用法提示",
+        "keywords": ["chart", "html", "widget", "display", "图表", "围栏"]
+      }
+    ],
+    "skills": ["skills/m_inline_show.md"],
+    "settings": [
+      {
+        "key": "diag",
+        "title": "诊断日志（插件自检写入）",
+        "type": "string",
+        "default": ""
+      }
+    ]
+  },
+  "engines": {
+    "piDesktop": ">=0.15.0"
+  },
+  "activationEvents": [
+    "onCommand:local.m_inline_show.help",
+    "onStartup"
+  ]
+}
