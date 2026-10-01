@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const { CHART_TYPES, MAX_CHART_WIDTH_PX, MIN_CHART_WIDTH_PX, SPARK_WIDTH_PX, WIDTH_PRESETS, buildBarGroups, buildLineGeometry, buildPieSlices, estimateTextWidth, formatNumber, fullWindow, indexAtRatio, labelAt, labelIndices, niceScale, parseChartSpec, parseWidth, pieMidPoint, pointRows, preferredWidth, seriesSlot, sliceSpec, toNumber, zoomWindow } =
+const { CHART_TYPES, MAX_CHART_WIDTH_PX, MIN_CHART_WIDTH_PX, SPARK_WIDTH_PX, WIDTH_PRESETS, buildBarGroups, buildLineGeometry, buildPieSlices, estimateTextWidth, formatNumber, fullWindow, indexAtRatio, labelAt, labelIndices, legendWidth, naturalWidth, niceScale, parseChartSpec, parseWidth, pieMidPoint, pointRows, preferredWidth, seriesSlot, sliceSpec, toNumber, zoomWindow } =
   await import(path.join(here, "renderer/chart-spec.mjs"));
 const { DEFAULT_HTML_WIDTH_PX, MAX_HTML_HEIGHT_PX, MAX_HTML_WIDTH_PX, MIN_HTML_WIDTH_PX, buildHtmlSrcDoc, clampHeight, clampWidth, hostPalette, isBlank, looksLikeMarkup } =
   await import(path.join(here, "renderer/html-spec.mjs"));
@@ -90,12 +90,16 @@ check("宽度：spark 是恒定窄条", widthOf({ type: "spark", values: [1, 2, 
 check("宽度：不低于下限", linePoints(2) >= MIN_CHART_WIDTH_PX, true);
 check("宽度：不超过上限", [linePoints(2), linePoints(12), widthOf({ type: "bar", values: [1, 2, 3, 4] })].every((w) => w <= MAX_CHART_WIDTH_PX), true);
 check("宽度：点越多越宽", linePoints(12) > linePoints(3), true);
-check("宽度：12 个点才用满上限", linePoints(12), MAX_CHART_WIDTH_PX);
+check("宽度：字特别多时顶到上限", linePoints(40), MAX_CHART_WIDTH_PX);
 check("宽度：数据少时不铺满", linePoints(4) < MAX_CHART_WIDTH_PX, true);
 check("宽度：多系列更宽", widthOf({ type: "bar", series: [{ name: "a", values: [1, 2, 3, 4] }, { name: "b", values: [1, 2, 3, 4] }] }) > widthOf({ type: "bar", values: [1, 2, 3, 4] }), true);
 check("宽度：饼图给图例留位", widthOf({ type: "pie", x: ["A", "B"], values: [3, 2] }) >= 300, true);
 check("宽度：长标签的饼图更宽", widthOf({ type: "pie", x: ["这是一个很长的分类标签", "B"], values: [3, 2] }) > widthOf({ type: "pie", x: ["A", "B"], values: [3, 2] }), true);
 check("宽度：中文比拉丁宽", estimateTextWidth("中文") > estimateTextWidth("ab"), true);
+check("图例：名字越长预留越宽", legendWidth(parseChartSpec(JSON.stringify({ series: [{ name: "一个很长的系列名字", values: [1, 2] }, { name: "b", values: [1, 2] }] })).spec) > legendWidth(parseChartSpec(JSON.stringify({ series: [{ name: "s", values: [1, 2] }, { name: "b", values: [1, 2] }] })).spec), true);
+check("图例：单系列不预留宽度", legendWidth(parseChartSpec(JSON.stringify({ values: [1, 2] })).spec), 0);
+check("宽度：长系列名把块撑宽", widthOf({ type: "line", x: ["a", "b"], series: [{ name: "这是一条名字特别长的系列", values: [1, 2] }, { name: "另一条同样很长的系列", values: [2, 1] }] }) > widthOf({ type: "line", x: ["a", "b"], series: [{ name: "s1", values: [1, 2] }, { name: "s2", values: [2, 1] }] }), true);
+check("naturalWidth 本身不封顶", naturalWidth(parseChartSpec(JSON.stringify({ type: "line", values: Array.from({ length: 60 }, () => 1) })).spec) > MAX_CHART_WIDTH_PX, true);
 
 // ── 围栏里的 width 字段（显式覆盖自适应） ────────────────────────────────
 check("width：缺省即 auto", parseChartSpec('{"values":[1]}').spec.width, "auto");

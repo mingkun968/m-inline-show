@@ -283,7 +283,7 @@ ${TOKEN_CSS}
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 150px;
+  max-width: 240px;
 }
 .ldp-tip-value {
   color: var(--ldp-text-primary);
@@ -305,11 +305,6 @@ ${TOKEN_CSS}
   gap: 4px;
   min-width: 0;
 }
-.ldp-legend-inline {
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-}
 .ldp-legend li {
   display: flex;
   align-items: center;
@@ -323,6 +318,36 @@ ${TOKEN_CSS}
 }
 .ldp-legend-name {
   color: var(--ldp-text-secondary);
+}
+/*
+ * 多系列图例：一行排布，每项按自己的字数占位（不压缩、不截断）。
+ * 只有整行真的放不下时才出现横向滚动条 —— 这就是「字特别多」的那种情况。
+ */
+.ldp-legend-inline {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 3px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ldp-border-strong) transparent;
+}
+.ldp-legend-inline li {
+  flex: 0 0 auto;
+}
+.ldp-legend-inline .ldp-legend-name {
+  white-space: nowrap;
+}
+.ldp-legend-inline::-webkit-scrollbar {
+  height: 6px;
+}
+.ldp-legend-inline::-webkit-scrollbar-thumb {
+  background: var(--ldp-border-strong);
+  border-radius: 3px;
+}
+.ldp-legend-inline::-webkit-scrollbar-track {
+  background: transparent;
 }
 .ldp-legend-value {
   color: var(--ldp-text-tertiary);

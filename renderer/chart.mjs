@@ -481,7 +481,7 @@ function PiePlot({ spec, width, svgRef }) {
         ? h(Tooltip, {
             x: hover.x,
             y: hover.y,
-            title: truncate(labels[hover.index] ?? `#${hover.index + 1}`, 18),
+            title: truncate(labels[hover.index] ?? `#${hover.index + 1}`, 40),
             rows: [
               {
                 key: "slice",
@@ -506,7 +506,7 @@ function PiePlot({ spec, width, svgRef }) {
             onPointerLeave: () => setHover(null),
           },
           h("span", { className: `ldp-swatch ldp-s${seriesSlot(slice.index)}` }),
-          h("span", { className: "ldp-legend-name" }, truncate(labels[slice.index] ?? `#${slice.index + 1}`, 16)),
+          h("span", { className: "ldp-legend-name", title: labels[slice.index] }, labels[slice.index] ?? `#${slice.index + 1}`),
           h(
             "span",
             { className: "ldp-legend-value" },
@@ -642,7 +642,7 @@ export function ChartBlock({ language, source }) {
                 onPointerLeave: () => setDimSlot(null),
               },
               h("span", { className: `ldp-swatch ldp-s${seriesSlot(slot)}` }),
-              h("span", { className: "ldp-legend-name" }, truncate(entry.name || `系列 ${slot + 1}`, 20)),
+              h("span", { className: "ldp-legend-name", title: entry.name || `系列 ${slot + 1}` }, entry.name || `系列 ${slot + 1}`),
               h(
                 "span",
                 { className: "ldp-legend-value" },

@@ -23,13 +23,18 @@ export const AXIS_PADDING = { left: 52, right: 14, top: 10, bottom: 24 };
 export const SPARK_PADDING = { left: 6, right: 6, top: 6, bottom: 6 };
 export const MAX_AXIS_LABELS = 8;
 
-/** 块宽度：下限保证坐标轴与标题放得下，上限避免小图也拉满聊天栏。 */
+/** 块宽度：下限保证坐标轴与标题放得下。 */
 export const MIN_CHART_WIDTH_PX = 260;
-export const MAX_CHART_WIDTH_PX = 560;
+/** 上限是「文字特别多」时才会碰到的天花板：碰到它，多出来的内容靠横向滚动条看完。 */
+export const MAX_CHART_WIDTH_PX = 720;
 /** sparkline 是窄条趋势线，宽度恒定，不参与自适应。 */
 export const SPARK_WIDTH_PX = 240;
 /** 围栏里 width 字段的档位写法。 */
-export const WIDTH_PRESETS = { sm: 320, md: 440, lg: 560 };
+export const WIDTH_PRESETS = { sm: 320, md: 480, lg: 720 };
+/** x 轴刻度字号，与样式表 .ldp-tick 的 font-size 保持一致，用于估标签占宽。 */
+export const TICK_FONT_PX = 10;
+/** 相邻刻度之间除了文字本身还要留的间距。 */
+export const TICK_GAP_PX = 14;
 
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
@@ -161,40 +166,86 @@ function headWidth(spec) {
   return 20 + title + 6 + badge + 6 + actions;
 }
 
+/** 饼图：环形 + 右侧图例，要放得下最长的一条完整标签（不截断）。 */
 function pieWidth(spec) {
   const radius = Math.max(40, Math.min(BLOCK_HEIGHT.pie / 2 - 12, 96));
   const longest = (spec?.x ?? []).reduce(
-    (max, name) => Math.max(max, estimateTextWidth(String(name ?? "").slice(0, 16), 12)),
+    (max, name) => Math.max(max, estimateTextWidth(String(name ?? ""), 12)),
     0,
   );
   const value = estimateTextWidth("0 · 100.0%", 12);
   return 20 + (radius * 2 + 20) + 12 + 9 + 6 + longest + 8 + value;
 }
 
+/** 最长的一个 x 轴标签占多宽（px）。 */
+export function labelWidth(spec) {
+  return (spec?.x ?? []).reduce(
+    (most, name) => Math.max(most, estimateTextWidth(String(name ?? ""), TICK_FONT_PX)),
+    0,
+  );
+}
+
+
 /**
- * 按内容估算「贴合」的块宽度：数据少就窄，数据多才放宽到上限。
- * 纯观感参数，不影响任何取值正确性。
+ * 多系列图例（一行排布）需要多宽：色块 9 + 名称 + 末值 + 项间 14。
+ * 名称按**完整字数**算 —— 图例不截断，真放不下就靠横向滚动条。
  */
-export function preferredWidth(spec, { min = MIN_CHART_WIDTH_PX, max = MAX_CHART_WIDTH_PX } = {}) {
+export function legendWidth(spec) {
+  const series = Array.isArray(spec?.series) ? spec.series : [];
+  if (series.length <= 1) return 0;
+  const items = series.reduce((total, entry) => {
+    const name = estimateTextWidth(String(entry?.name ?? ""), 12);
+    const value = estimateTextWidth("-000k", 12);
+    return total + 9 + 6 + name + 6 + value + 14;
+  }, 0);
+  return Math.round(20 + Math.max(0, items - 14));
+}
+/**
+ * 「把字都显示完整」需要的画布宽度，不设上限。
+ * 超过 MAX_CHART_WIDTH_PX 的部分由 preferredWidth 封顶、交给横向滚动条。
+ */
+export function naturalWidth(spec) {
   const type = spec?.type ?? "line";
   if (type === "spark") return SPARK_WIDTH_PX;
 
   const series = Array.isArray(spec?.series) ? spec.series : [];
   const slots = Math.max(1, series.length);
   const points = series.reduce((most, entry) => Math.max(most, (entry?.values ?? []).length), 0);
+  const label = labelWidth(spec);
 
   let body;
   if (type === "pie") {
     body = pieWidth(spec);
   } else if (type === "bar") {
-    const perBar = slots > 1 ? 40 : 54;
-    body = AXIS_PADDING.left + AXIS_PADDING.right + perBar * Math.max(1, points) * (slots > 1 ? slots : 1);
+    // 单系列：每根柱的位置要放得下标签；多系列：一组（slots 根）要放得下。
+    const perGroup = slots > 1
+      ? Math.max(40 * slots, label + TICK_GAP_PX)
+      : Math.max(54, label + TICK_GAP_PX);
+    body = AXIS_PADDING.left + AXIS_PADDING.right + perGroup * Math.max(1, points);
   } else {
-    body = AXIS_PADDING.left + AXIS_PADDING.right + 52 * Math.max(0, points - 1);
+    const perPoint = Math.max(52, label + TICK_GAP_PX);
+    body = AXIS_PADDING.left + AXIS_PADDING.right + perPoint * Math.max(0, points - 1);
   }
 
-  const wanted = Math.max(body, headWidth(spec));
-  return Math.round(Math.max(min, Math.min(max, wanted)));
+  return Math.round(Math.max(body, headWidth(spec), legendWidth(spec)));
+}
+
+/**
+ * 块宽度：按文字量估算并封顶。顶到上限就是「字特别多」，多出来的靠横向滚动条看。
+ * 纯观感参数，不影响任何取值正确性。
+ */
+export function preferredWidth(spec, { min = MIN_CHART_WIDTH_PX, max = MAX_CHART_WIDTH_PX } = {}) {
+  if ((spec?.type ?? "line") === "spark") return SPARK_WIDTH_PX;
+  const natural = naturalWidth(spec);
+  return Math.round(Math.max(min, Math.min(max, natural)));
+}
+
+/** 画布这么宽时，x 轴最多能排下几个不重叠的刻度。 */
+export function axisLabelLimit(canvasWidth, spec, count) {
+  const inner = Math.max(1, Number(canvasWidth) - AXIS_PADDING.left - AXIS_PADDING.right);
+  const need = Math.max(28, labelWidth(spec) + TICK_GAP_PX);
+  const total = Math.max(1, Number(count) || 1);
+  return Math.max(2, Math.min(total, Math.floor(inner / need)));
 }
 
 /**
