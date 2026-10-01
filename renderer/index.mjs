@@ -43,16 +43,6 @@ export function onLoad(pi) {
       patch.installed ? "已安装" : `未安装（${patch.reason}）`
     }）`,
   );
-  // 【临时·清完即删】清掉早期探针写进应用窗口 localStorage 的验证残留键。
-  void (() => {
-    try {
-      const keys = Object.keys(localStorage).filter((key) => key.startsWith("LAYOUTPROBE"));
-      keys.forEach((key) => localStorage.removeItem(key));
-      void hostLog(`renderer 清理验证残留：删除 ${keys.length} 个键`);
-    } catch (error) {
-      void hostLog(`renderer 清理验证残留失败：${String(error)}`);
-    }
-  })();
 }
 
 export function onUnload() {

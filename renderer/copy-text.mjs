@@ -4,8 +4,23 @@
  *   2. navigator.clipboard.writeText（应用窗口里可能被权限/焦点限制拒绝）
  *   3. 临时 textarea + document.execCommand("copy")
  *
+ * 每层都有**超时上限**：渲染侧往宿主的调用有可能既不 resolve 也不 reject（永远挂着），
+ * 那样会把整条链冻在第一层 —— 超时即判失败、继续降级，按钮永远有反馈。
+ *
  * 依赖可注入，便于离线自测；失败时把三层的具体原因一起返回，界面不再静默。
  */
+
+/** 单层等待上限（毫秒）；deps.timeoutMs 可覆盖，便于自测。 */
+export const LAYER_TIMEOUT_MS = 1200;
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`${label} 超过 ${ms}ms 未返回`)), ms);
+    }),
+  ]);
+}
 
 export function defaultClipboardDeps() {
   return {
@@ -48,12 +63,13 @@ export async function copyText(text, deps = defaultClipboardDeps()) {
   const value = typeof text === "string" ? text : String(text ?? "");
   if (!value) return { ok: false, error: "没有可复制的内容" };
 
+  const timeoutMs = Number(deps?.timeoutMs) > 0 ? Number(deps.timeoutMs) : LAYER_TIMEOUT_MS;
   const reasons = [];
 
   const host = deps?.host;
   if (typeof host === "function") {
     try {
-      await host(value);
+      await withTimeout(host(value), timeoutMs, "插件进程通道");
       return { ok: true, via: "插件进程原生剪贴板" };
     } catch (error) {
       reasons.push(`插件进程：${messageOf(error)}`);
@@ -65,7 +81,7 @@ export async function copyText(text, deps = defaultClipboardDeps()) {
   const clipboard = deps?.clipboard;
   if (clipboard && typeof clipboard.writeText === "function") {
     try {
-      await clipboard.writeText(value);
+      await withTimeout(clipboard.writeText(value), timeoutMs, "navigator.clipboard");
       return { ok: true, via: "navigator.clipboard" };
     } catch (error) {
       reasons.push(`navigator.clipboard：${messageOf(error)}`);

@@ -223,6 +223,33 @@ check(
 );
 check("未提供插件进程通道时仍能复制", (await copyText("hi", { clipboard: { async writeText() {} }, doc: fakeDoc().doc })).ok, true);
 
+// 宿主通道挂起（既不 resolve 也不 reject）→ 必须超时降级，不能把整条链冻住
+const hostHangStart = Date.now();
+const hostHang = await copyText("hello", {
+  host: () => new Promise(() => {}),
+  clipboard: {
+    async writeText() {
+      throw new Error("NotAllowedError");
+    },
+  },
+  doc: fakeDoc({ execResult: true }).doc,
+  timeoutMs: 30,
+});
+check("复制链：宿主挂起 → 超时后降级到 execCommand", [hostHang.ok, hostHang.via], [true, 'execCommand("copy")']);
+check("复制链：超时不拖慢整体（快速降级）", Date.now() - hostHangStart < 600, true);
+
+const navHangStart = Date.now();
+const navHang = await copyText("hello", {
+  host: async () => {
+    throw new Error("宿主拒绝");
+  },
+  clipboard: { writeText: () => new Promise(() => {}) },
+  doc: fakeDoc({ execResult: true }).doc,
+  timeoutMs: 30,
+});
+check("复制链：navigator.clipboard 挂起 → 也降级", [navHang.ok, navHang.via], [true, 'execCommand("copy")']);
+check("复制链：两层都挂起也快速返回", Date.now() - navHangStart < 600, true);
+
 console.log("== 全局复制补丁（clipboard-patch）==");
 
 const { installClipboardPatch, uninstallClipboardPatch } = await import(path.join(here, "renderer/clipboard-patch.mjs"));
