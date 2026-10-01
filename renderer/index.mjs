@@ -8,11 +8,13 @@
 import { ChartBlock } from "./chart.mjs";
 import { HtmlBlock } from "./html-block.mjs";
 import { WidgetBlock } from "./widget-block.mjs";
-import { hostLog } from "./host-bridge.mjs";
+import { hostLog, setHostApi } from "./host-bridge.mjs";
 import { DISP_CSS } from "./styles.mjs";
 import { installClipboardPatch, uninstallClipboardPatch } from "./clipboard-patch.mjs";
 
 export function onLoad(pi) {
+  // 宿主 API **不是全局变量**，而是这里的入参：先交给桥，后续 disp.copy / disp.log 才有通道。
+  setHostApi(pi);
   pi.ui.injectStyle(DISP_CSS);
 
   const prefix = pi.plugin?.id ?? "local.m_inline_show";
@@ -41,6 +43,16 @@ export function onLoad(pi) {
       patch.installed ? "已安装" : `未安装（${patch.reason}）`
     }）`,
   );
+  // 【临时·清完即删】清掉早期探针写进应用窗口 localStorage 的验证残留键。
+  void (() => {
+    try {
+      const keys = Object.keys(localStorage).filter((key) => key.startsWith("LAYOUTPROBE"));
+      keys.forEach((key) => localStorage.removeItem(key));
+      void hostLog(`renderer 清理验证残留：删除 ${keys.length} 个键`);
+    } catch (error) {
+      void hostLog(`renderer 清理验证残留失败：${String(error)}`);
+    }
+  })();
 }
 
 export function onUnload() {
